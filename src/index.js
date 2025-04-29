@@ -1,64 +1,60 @@
 import express from "express";
 import cors from "cors";
-import fs from 'fs';
-import path from "path";
-import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import connectDB from "./config/db.js";
+import pokemonRoutes from "./routes/pokemonRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+import userCardRoutes from "./routes/userCardRoutes.js";
+import { apiRateLimit } from "./middleware/rateLimit.js";
+import initAdmin from "./config/initAdmin.js";
 
 dotenv.config();
 
-// Lire le fichier JSON
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const pokemonsList = JSON.parse(fs.readFileSync(path.join(__dirname, './data/pokemons.json'), 'utf8'));
+// Connexion à MongoDB
+connectDB().then(() => {
+  // Initialiser l'utilisateur administrateur après la connexion à la base de données
+  initAdmin();
+});
 
 const app = express();
 const PORT = 3000;
 
-// Middleware pour CORS
-app.use(cors());
+// Configuration CORS
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "*",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 
-// Middleware pour parser le JSON
 app.use(express.json());
 
-// Middleware pour servir des fichiers statiques
-// 'app.use' est utilisé pour ajouter un middleware à notre application Express
-// '/assets' est le chemin virtuel où les fichiers seront accessibles
-// 'express.static' est un middleware qui sert des fichiers statiques
-// 'path.join(__dirname, '../assets')' construit le chemin absolu vers le dossier 'assets'
-app.use("/assets", express.static(path.join(__dirname, "../assets")));
+// Middleware de limitation de taux global
+app.use("/api", apiRateLimit);
 
-// Route GET de base
-app.get("/api/pokemons", (req, res) => {
-  res.status(200).send({
-    types: [
-      "fire",
-      "water",
-      "grass",
-      "electric",
-      "ice",
-      "fighting",
-      "poison",
-      "ground",
-      "flying",
-      "psychic",
-      "bug",
-      "rock",
-      "ghost",
-      "dragon",
-      "dark",
-      "steel",
-      "fairy",
-    ],
-    pokemons: pokemonsList,
-  });
-});
+// Routes - Utilisation des routes définies dans pokemonRoutes.js
+app.use("/api/pokemons", pokemonRoutes);
 
+// Routes d'authentification
+app.use("/api/auth", authRoutes);
+
+// Routes utilisateurs
+app.use("/api/users", userRoutes);
+
+// Routes des cartes des utilisateurs
+app.use("/api/user-cards", userCardRoutes);
+
+// Route de base
 app.get("/", (req, res) => {
-  res.send("bienvenue sur l'API Pokémon");
+  res.send("Bienvenue sur l'API Pokémon avec MongoDB");
 });
 
-// Démarrage du serveur
+const VALID_TYPES = [
+  "fire", "water", "grass", "electric", "ice", "fighting", "poison", "ground",
+  "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy"
+];
+
 app.listen(PORT, () => {
-  console.log(`Serveur démarré sur http://localhost:${PORT}`);
+  console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
 });
+
